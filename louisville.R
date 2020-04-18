@@ -174,6 +174,42 @@ int_pov_tbl <- svyby(~int_acc, ~YEAR+poverty, design = svy_df, svymean)
 int_age_tbl <-svyby(~int_acc, ~YEAR+under65, design = svy_df, svymean)
 int_race_tbl <- svyby(~int_acc, ~YEAR+RACE, design = svy_df, svymean)
 
+int_pov_tbl <- int_pov_tbl %>%
+  mutate(Poverty = if_else(poverty == 0, "Above Poverty Line", "Below Poverty Line"),
+         int = int_acc * 100)
+
+plt_by <- function(df, group_var) {
+  group_var <- enquo(group_var)
+
+  plt <- ggplot(data = df, aes(x = YEAR, y = int, group = !!group_var, colour = !!group_var)) +
+    geom_point() +
+    geom_line() +
+    theme_bw() +
+    labs(title = "Household Internet Access", x = "Year", y = "Percent")
+
+  plt
+}
+
+plt_pov <- plt_by(int_pov_tbl, Poverty)
+
+int_race_tbl <- int_race_tbl %>%
+  filter(RACE < 3) %>% #Louisville's racial groups other than White and Black have small populations leading to low sample sizes
+  mutate(Race = if_else(RACE == 1, "White", "Black"),
+         int = int_acc * 100)
+
+plt_race <- plt_by(int_race_tbl, Race)
+plt_race
+
+int_age_tbl <- int_age_tbl %>%
+  mutate(Age = if_else(under65 == 1, "Under 65", "Over 65"),
+         int = int_acc * 100)
+
+plt_age <- plt_by(int_age_tbl, Age)
+plt_age
+
+
+# Next step is graphing the PUMAs
+
 
 
 
