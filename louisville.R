@@ -2,58 +2,58 @@
 library(tidyverse)
 library(survey)
 
-# Read in data from IPUMS
-df <- read_csv("mpi_13_18_raw.csv",
-               col_types = cols(
-                 YEAR = col_double(),
-                 SAMPLE = col_double(),
-                 SERIAL = col_double(),
-                 CBSERIAL = col_double(),
-                 HHWT = col_double(),
-                 CLUSTER = col_double(),
-                 STATEFIP = col_double(),
-                 METRO = col_double(),
-                 MET2013 = col_double(),
-                 PUMA = col_double(),
-                 STRATA = col_double(),
-                 GQ = col_double(),
-                 FARM = col_double(),
-                 OWNCOST = col_double(),
-                 RENTGRS = col_double(),
-                 HHINCOME = col_double(),
-                 LINGISOL = col_double(),
-                 BEDROOMS = col_double(),
-                 CINETHH = col_double(),
-                 CILAPTOP = col_double(),
-                 CISMRTPHN = col_double(),
-                 CITABLET = col_double(),
-                 CIHAND = col_double(),
-                 CIOTHCOMP = col_double(),
-                 PERNUM = col_double(),
-                 PERWT = col_double(),
-                 SEX = col_double(),
-                 AGE = col_double(),
-                 RACE = col_double(),
-                 RACED = col_double(),
-                 HISPAN = col_double(),
-                 HISPAND = col_double(),
-                 CITIZEN = col_double(),
-                 HCOVANY = col_double(),
-                 EDUC = col_double(),
-                 EDUCD = col_double(),
-                 EMPSTAT = col_double(),
-                 EMPSTATD = col_double(),
-                 INCINVST = col_double(),
-                 INCRETIR = col_double(),
-                 POVERTY = col_double(),
-                 DIFFMOB = col_double(),
-                 DIFFCARE = col_double()
-               )
-)
-
-df_lou <- df %>%
-  filter(MET2013 == 31140) %>%
-  write_csv("louisville_mpi.csv") #louisville MSA in 2018 in order to test
+# # Read in data from IPUMS
+# df <- read_csv("mpi_13_18_raw.csv",
+#                col_types = cols(
+#                  YEAR = col_double(),
+#                  SAMPLE = col_double(),
+#                  SERIAL = col_double(),
+#                  CBSERIAL = col_double(),
+#                  HHWT = col_double(),
+#                  CLUSTER = col_double(),
+#                  STATEFIP = col_double(),
+#                  METRO = col_double(),
+#                  MET2013 = col_double(),
+#                  PUMA = col_double(),
+#                  STRATA = col_double(),
+#                  GQ = col_double(),
+#                  FARM = col_double(),
+#                  OWNCOST = col_double(),
+#                  RENTGRS = col_double(),
+#                  HHINCOME = col_double(),
+#                  LINGISOL = col_double(),
+#                  BEDROOMS = col_double(),
+#                  CINETHH = col_double(),
+#                  CILAPTOP = col_double(),
+#                  CISMRTPHN = col_double(),
+#                  CITABLET = col_double(),
+#                  CIHAND = col_double(),
+#                  CIOTHCOMP = col_double(),
+#                  PERNUM = col_double(),
+#                  PERWT = col_double(),
+#                  SEX = col_double(),
+#                  AGE = col_double(),
+#                  RACE = col_double(),
+#                  RACED = col_double(),
+#                  HISPAN = col_double(),
+#                  HISPAND = col_double(),
+#                  CITIZEN = col_double(),
+#                  HCOVANY = col_double(),
+#                  EDUC = col_double(),
+#                  EDUCD = col_double(),
+#                  EMPSTAT = col_double(),
+#                  EMPSTATD = col_double(),
+#                  INCINVST = col_double(),
+#                  INCRETIR = col_double(),
+#                  POVERTY = col_double(),
+#                  DIFFMOB = col_double(),
+#                  DIFFCARE = col_double()
+#                )
+# )
+#
+# df_lou <- df %>%
+#   filter(MET2013 == 31140) %>%
+#   write_csv("louisville_mpi.csv") #louisville MSA in 2018 in order to test
 
 df <- read_csv("louisville_mpi.csv",
                col_types = cols(
@@ -176,16 +176,19 @@ int_race_tbl <- svyby(~int_acc, ~YEAR+RACE, design = svy_df, svymean)
 
 int_pov_tbl <- int_pov_tbl %>%
   mutate(Poverty = if_else(poverty == 0, "Above Poverty Line", "Below Poverty Line"),
-         int = int_acc * 100)
+         int = int_acc * 100,
+         se100 = se * 100)
 
 plt_by <- function(df, group_var) {
   group_var <- enquo(group_var)
 
   plt <- ggplot(data = df, aes(x = YEAR, y = int, group = !!group_var, colour = !!group_var)) +
+    geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
     geom_point() +
     geom_line() +
     theme_bw() +
-    labs(title = "Household Internet Access", x = "Year", y = "Percent")
+    labs(title = "Household Internet Access", x = "Year", y = "Percent") +
+    theme(legend.position = "bottom")
 
   plt
 }
@@ -195,18 +198,31 @@ plt_pov <- plt_by(int_pov_tbl, Poverty)
 int_race_tbl <- int_race_tbl %>%
   filter(RACE < 3) %>% #Louisville's racial groups other than White and Black have small populations leading to low sample sizes
   mutate(Race = if_else(RACE == 1, "White", "Black"),
-         int = int_acc * 100)
+         int = int_acc * 100,
+         se100 = se * 100)
 
 plt_race <- plt_by(int_race_tbl, Race)
 plt_race
 
 int_age_tbl <- int_age_tbl %>%
   mutate(Age = if_else(under65 == 1, "Under 65", "Over 65"),
-         int = int_acc * 100)
+         int = int_acc * 100,
+         se100 = se * 100)
 
 plt_age <- plt_by(int_age_tbl, Age)
 plt_age
 
+int_tbl <- int_tbl %>%
+  mutate(int = int_acc * 100,
+         se100 = se * 100)
+
+plt_int <- ggplot(int_tbl, aes(x = YEAR, y = int)) +
+  geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
+  geom_line() +
+  geom_point() +
+  theme_bw() +
+  labs(title = "Household Internet Access", x = "Year", y = "Percent") +
+  theme(legend.position = "bottom")
 
 # Next step is graphing the PUMAs
 
