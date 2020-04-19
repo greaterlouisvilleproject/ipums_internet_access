@@ -148,7 +148,7 @@ df <- df %>%
 df_na <- df %>%
   filter(!is.na(int_acc) & !is.na(computer))
 
-svy_df <- svydesign(ids = ~ 1, weights = ~HHWT, data = df_na)
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
 
 int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
 comp_tbl <- svyby(~computer, ~YEAR, design = svy_df, svymean)
@@ -160,7 +160,7 @@ smart_int_tbl <- svyby(~smart_or_int, ~YEAR, design = svy_df, svymean)
 df_na_16 <- df %>%
   filter(!is.na(smartphone) & !is.na(tablet))
 
-svy_df_smart <- svydesign(ids = ~ 1, weights = ~HHWT, data = df_na_16)
+svy_df_smart <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na_16)
 
 smart_tbl <- svyby(~smartphone, ~YEAR, design = svy_df_smart, svymean)
 tab_tbl <- svyby(~tablet, ~YEAR, design = svy_df, svymean)
@@ -175,7 +175,7 @@ df <- df %>%
 df_na <- df %>%
   filter(!is.na(int_acc) & !is.na(computer))
 
-svy_df <- svydesign(ids = ~ 1, weights = ~HHWT, data = df_na)
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
 
 int_pov_tbl <- svyby(~int_acc, ~YEAR+poverty, design = svy_df, svymean)
 int_age_tbl <-svyby(~int_acc, ~YEAR+under65, design = svy_df, svymean)
@@ -186,7 +186,7 @@ int_pov_tbl <- int_pov_tbl %>%
          int = int_acc * 100,
          se100 = se * 100)
 
-plt_by <- function(df, group_var) {
+plt_by <- function(df, group_var, title_text = "Internet Access at Home") {
   group_var <- enquo(group_var)
 
   plt <- ggplot(data = df, aes(x = YEAR, y = int, group = !!group_var, colour = !!group_var)) +
@@ -194,7 +194,7 @@ plt_by <- function(df, group_var) {
     geom_point() +
     geom_line() +
     theme_bw() +
-    labs(title = "Household Internet Access", x = "Year", y = "Percent") +
+    labs(title = title_text, x = "Year", y = "Percent") +
     theme(legend.position = "bottom")
 
   plt
@@ -208,7 +208,7 @@ int_race_tbl <- int_race_tbl %>%
          int = int_acc * 100,
          se100 = se * 100)
 
-plt_race <- plt_by(int_race_tbl, Race)
+plt_race <- plt_by(int_race_tbl, Race, title_text = "Internet Access")
 plt_race
 
 int_age_tbl <- int_age_tbl %>%
@@ -216,7 +216,7 @@ int_age_tbl <- int_age_tbl %>%
          int = int_acc * 100,
          se100 = se * 100)
 
-plt_age <- plt_by(int_age_tbl, Age)
+plt_age <- plt_by(int_age_tbl, Age, title_text = "Internet Access")
 plt_age
 
 int_tbl <- int_tbl %>%
