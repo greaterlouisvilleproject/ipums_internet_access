@@ -40,5 +40,11 @@ plt_race
 plt_age
 ```
 
+# Devices
 
+- 80% of Louisville households have a computer in thier household, unlike internet access this is down a little bit from 2013 (82%).
+- 69% have a tablet in their household.
+- 85% have either a computer or a tablet.
+- 89% of households have a smartphone.
+- 94% have either a smartphone or internet access at home.
 

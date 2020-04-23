@@ -136,6 +136,11 @@ df <- df %>%
       computer == 0 | int_acc == 0 ~ 0,
       TRUE ~ NA_real_
     ),
+    smart_and_int = case_when(
+      smartphone == 1 & int_acc == 1 ~ 1,
+      smartphone == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
     smart_or_int = case_when(
       smartphone == 1 | int_acc == 1 ~ 1,
       smartphone == 0 & int_acc == 0 ~ 0,
@@ -154,6 +159,7 @@ int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
 comp_tbl <- svyby(~computer, ~YEAR, design = svy_df, svymean)
 comp_int_tbl <- svyby(~comp_and_int, ~YEAR, design = svy_df, svymean)
 smart_int_tbl <- svyby(~smart_or_int, ~YEAR, design = svy_df, svymean)
+smart_and_int_tbl <- svyby(~smart_and_int, ~YEAR, design = svy_df, svymean)
 
 
 #smart phone and tablet data starts in 2016
