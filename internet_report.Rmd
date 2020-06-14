@@ -1,0 +1,588 @@
+---
+title: "Internet Access in Louisville"
+author: "Nate Kratzer"
+date: '2020-06-03'
+output:
+  html_document:
+    includes:
+      in_header: header.html
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# Overall
+
+This report uses census Microdata from IPUMS to look at internet access in the Louisville MSA. Data is available from 2013 to 2018. Louisville ranks towards the bottom of our peer cities in percent of people with home internet access, although the differences among the cities are relatively small (The top city, Grand Rapids, is only 4 percentage points ahead of Louisville).
+
+```{r}
+# Libraries
+library(tidyverse)
+library(survey)
+library(glptools)
+library(classInt)
+library(ggthemes)
+
+# Read in data from IPUMS
+df <- read_csv("~/Documents/pers/mpitools/mpi_13_18_raw.csv",
+               col_types = cols(
+                 YEAR = col_double(),
+                 SAMPLE = col_double(),
+                 SERIAL = col_double(),
+                 CBSERIAL = col_double(),
+                 HHWT = col_double(),
+                 CLUSTER = col_double(),
+                 STATEFIP = col_double(),
+                 METRO = col_double(),
+                 MET2013 = col_double(),
+                 PUMA = col_double(),
+                 STRATA = col_double(),
+                 GQ = col_double(),
+                 FARM = col_double(),
+                 OWNCOST = col_double(),
+                 RENTGRS = col_double(),
+                 HHINCOME = col_double(),
+                 LINGISOL = col_double(),
+                 BEDROOMS = col_double(),
+                 CINETHH = col_double(),
+                 CILAPTOP = col_double(),
+                 CISMRTPHN = col_double(),
+                 CITABLET = col_double(),
+                 CIHAND = col_double(),
+                 CIOTHCOMP = col_double(),
+                 PERNUM = col_double(),
+                 PERWT = col_double(),
+                 SEX = col_double(),
+                 AGE = col_double(),
+                 RACE = col_double(),
+                 RACED = col_double(),
+                 HISPAN = col_double(),
+                 HISPAND = col_double(),
+                 CITIZEN = col_double(),
+                 HCOVANY = col_double(),
+                 EDUC = col_double(),
+                 EDUCD = col_double(),
+                 EMPSTAT = col_double(),
+                 EMPSTATD = col_double(),
+                 INCINVST = col_double(),
+                 INCRETIR = col_double(),
+                 POVERTY = col_double(),
+                 DIFFMOB = col_double(),
+                 DIFFCARE = col_double()
+               )
+)
+
+df_city <- df %>%
+  filter(MET2013 %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820, 27260, 
+                        39580, 19380, 40060)) %>%
+  mutate(city = case_when(
+    MET2013 == 24340 ~ "Grand Rapids",
+    MET2013 == 41180 ~ "St. Louis",
+    MET2013 == 36420 ~ "Oklahoma City",
+    MET2013 == 46140 ~ "Tulsa",
+    MET2013 == 24860 ~ "Greenville",
+    MET2013 == 28940 ~ "Knoxville",
+    MET2013 == 13820 ~ "Birmingham",
+    MET2013 == 31140 ~ "Louisville",
+    MET2013 == 26900 ~ "Indianapolis",
+    MET2013 == 28140 ~ "Kansas City",
+    MET2013 == 36540 ~ "Omaha",
+    MET2013 == 24660 ~ "Greensboro",
+    MET2013 == 16740 ~ "Charlotte",
+    MET2013 == 18140 ~ "Columbus",
+    MET2013 == 17140 ~ "Cincinnati",
+    MET2013 == 34980 ~ "Nashville",
+    MET2013 == 32820 ~ "Memphis",
+    MET2013 == 27260 ~ "Jacksonville",
+    MET2013 == 39580 ~ "Raleign",
+    MET2013 == 19380 ~ "Dayton",
+    MET2013 == 40060 ~ "Richmond",
+    TRUE ~ NA_character_
+  )) %>%
+  filter(!(city %in% c("Jacksonville", "Raleigh", "Dayton", "Richmond"))) # cities from old peer list
+
+  df <- df_city %>%
+    mutate(
+    int_acc = case_when(
+      CINETHH == 0 ~ NA_real_,
+      CINETHH == 1 ~ 1,
+      CINETHH == 2 ~ 1,
+      CINETHH == 3 ~ 0
+    ),
+    computer = case_when(
+      CILAPTOP == 0 ~ NA_real_,
+      CILAPTOP == 1 ~ 1,
+      CILAPTOP == 2 ~ 0
+    ),
+    smartphone = case_when(
+      CISMRTPHN == 0 ~ NA_real_,
+      CISMRTPHN == 1 ~ 1,
+      CISMRTPHN == 2 ~ 0
+    ),
+    tablet = case_when(
+      CITABLET == 0 ~ NA_real_,
+      CITABLET == 1 ~ 1,
+      CITABLET == 2 ~ 0
+    ),
+    comp_or_tab = case_when(
+      computer == 1 | tablet == 1 ~ 1,
+      computer == 0 & tablet == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    comp_and_int = case_when(
+      computer == 1 & int_acc == 1 ~ 1,
+      computer == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_and_int = case_when(
+      smartphone == 1 & int_acc == 1 ~ 1,
+      smartphone == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_or_int = case_when(
+      smartphone == 1 | int_acc == 1 ~ 1,
+      smartphone == 0 & int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+# These questions are usually only NA for group quarters
+# All the NA rows are the same for all categories in the Louisville sample
+df_na <- df %>%
+  filter(!is.na(int_acc) & !is.na(computer))
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+
+int_tbl <- svyby(~int_acc, ~YEAR+city, design = svy_df, svymean)
+comp_tbl <- svyby(~computer, ~YEAR+city, design = svy_df, svymean)
+
+ranking <- function(df, var, plot_title = "",
+                    year = NULL, sex = "total", race = "total", peers = "Current",
+                    order = "Descending",
+                    y_title = "Percent", caption_text = "", subtitle_text = "",
+                    bar_label = TRUE, sigfig = 3, accuracy = 0.1,
+                    label_function, alternate_text = NULL,
+                    ranking_colors = TRUE,
+                    font_family = "Verdana",
+                    text_size = 20,
+                    axis_size = 60){
+  
+  # Copy variable var to a new column for use with the '$' operator
+  var <- dplyr:::tbl_at_vars(df, vars(!!enquo(var)))
+  df$var <- df[[var]]
+  
+  # Filter to sex, race, and year
+  if ("sex" %in% names(df)) df <- df[df$sex == sex,]
+  if ("race" %in% names(df)) df <- df[df$race == race,]
+  if("year" %in% names(df)) {
+    if (is.null(year)) year <- max(years_in_df(df, var))
+    df <- df[df$year %in% year,]
+    
+    if (length(year) > 1) {
+      df %<>%
+        group_by_at(df %cols_in% c("MSA", "FIPS")) %>%
+        summarise(var = mean(var, na.rm = TRUE)) %>%
+        ungroup()
+    }
+  }
+  
+  # Add peer data if not already present
+  if (df_type(df) %in% c("FIPS", "MSA") & "current" %not_in% names(df)) df %<>% pull_peers()
+  
+  # Filter to peer parameter
+  if (peers %in% c("current", "Current"))   df %<>% filter(current == 1)
+  if (peers %in% c("baseline", "Baseline")) df %<>% filter(baseline == 1)
+  
+  # Sort according to order parameter
+  if (order %in% c("descending", "Descending")) df %<>% arrange(desc(var))
+  if (order %in% c("ascending", "Ascending"))   df %<>% arrange(var)
+  
+  df %<>% filter(!is.na(var))
+  
+  # Create numbered city labels for left side of graph
+  df %<>%
+    mutate(
+      rank = row_number(),
+      names = paste0(rank, ". ", city))
+  
+  # Set bar colors
+  if (ranking_colors) {
+    
+    color_values <- c("#96ca4f", "#ffd600", "#db2834")
+    color_names <- c("green", "yellow", "red")
+    if (order %in% c("descending", "Descending")) {color_names  = rev(color_names)}
+    
+    breaks <- classInt::classIntervals(na.omit(df$var), 3, style = "jenks")
+    df$color <- NA
+    df$color[df$var <= breaks$brks[2]] <- color_names[1]
+    df$color[df$var > breaks$brks[2] & df$var <= breaks$brks[3]] <- color_names[2]
+    df$color[df$var > breaks$brks[3]] <- color_names[3]
+    
+  } else {
+    df$color <- "blue"
+    color_values <- "#f58021"
+    color_names <- "blue"
+  }
+  
+  if (order %in% c("descending", "Descending")) color_values = rev(color_values)
+  
+  # Create numeric labels
+  if (!missing(label_function)) {
+    label_text <- df$var %>% signif(sigfig) %>% label_function()
+  } else if (y_title == "Dollars") {
+    if(mean(df$var, na.rm = TRUE) > 10000) {
+      label_text <- df$var %>% signif(sigfig) %>% scales::dollar(accuracy = accuracy, scale = .001, suffix = "k")
+    } else {
+      label_text <- df$var %>% signif(sigfig) %>% scales::dollar(accuracy = .01)
+    }
+  } else if (stringr::str_detect(y_title, "Percent")) {
+    label_text <- df$var %>% signif(sigfig) %>% scales::percent(accuracy = accuracy, scale = 1, suffix = "%")
+  } else {
+    label_text <- df$var %>% signif(sigfig) %>% scales::comma(accuracy = accuracy)
+  }
+  
+  # Set text format, highlight and italicise Louisville text, highlight Louisville bar
+  df$textcolor <- "#000000"
+  df$textcolor[df$city == "Louisville"] <- "#00a9b7"
+  
+  df$linecolor <- "#ffffff"
+  df$linecolor[df$city == "Louisville"] <- "#00a9b7"
+  
+  df$lou <- if_else(df$city == "Louisville", 1, 0)
+  
+  df$text_alignment <- 1.1
+  if (!is.null(alternate_text)) df$text_alignment[df$rank %in% alternate_text] <- -0.1
+  
+  ### PLOT GRAPH
+  
+  # Initial plot
+  p <- ggplot(data = df,
+              aes(x = factor(names, levels = rev(names)),
+                  y = var,
+                  fill  = factor(color, levels = color_names, ordered = TRUE)))
+  
+  p <- p + guides(fill = FALSE, color = FALSE)
+  
+  # Add bars
+  p <- p +
+    geom_bar(aes(color = factor(lou, levels = 0:1)),
+             stat = "identity",
+             size = 1) +
+    coord_flip() +
+    ggthemes::theme_tufte()
+  
+  p <- p + scale_fill_manual(values = color_values)
+  p <- p + scale_color_manual(values = c("#ffffff", "#00a9b7"))
+  
+  # Add features
+  title_scale <- min(1, 48 / nchar(plot_title))
+  
+  p <- p + theme(text = element_text(family = font_family),
+                 plot.title = element_text(size = 24 * title_scale, hjust = 0.5, margin = margin(b = 20, unit = "pt")),
+                 axis.text.y = element_text(hjust = 0,
+                                            size = axis_size, color = rev(df$textcolor)),
+                 axis.title.x = element_text(size = axis_size),
+                 axis.ticks = element_blank(),
+                 axis.text.x = element_blank(),
+                 plot.caption = element_text(size = 36, lineheight = 0.5))
+  
+  if(subtitle_text != ""){
+    p <- p + theme(plot.subtitle = element_text(hjust = 0.5, size = 48)) +
+      labs(subtitle = subtitle_text)
+  }
+  
+  # Add numeric labels to bars based on bar_label parameter
+  if (y_title != "" & bar_label) {
+    p <- p + geom_text(aes(label = label_text, hjust = text_alignment),
+                       size = text_size,
+                       family = font_family)
+  }
+  
+  # Add vertical line to the left side of the bars based on the h_line parameter
+  if (min(df$var, na.rm = TRUE) < 0) p <- p + geom_hline(yintercept = 0, linetype = "longdash", size = 2)
+  
+  # Add remaining text
+  p <- p + labs(title = plot_title, y = y_title,
+                x = "", caption = caption_text)
+  p
+}
+
+
+int_2018 <- int_tbl %>%
+  filter(YEAR == 2018) %>%
+  mutate(current = 1,
+         int_acc = int_acc * 100)
+  
+
+plt1 <- ranking(int_2018, int_acc,
+                plot_title = "Internet Access in 2018",
+                font_family = "Verdana", text_size = 3, axis_size = 12)
+
+plt1
+```
+
+
+```{r}
+df <- read_csv("louisville_mpi.csv",
+               col_types = cols(
+                 YEAR = col_double(),
+                 SAMPLE = col_double(),
+                 SERIAL = col_double(),
+                 CBSERIAL = col_double(),
+                 HHWT = col_double(),
+                 CLUSTER = col_double(),
+                 STATEFIP = col_double(),
+                 METRO = col_double(),
+                 MET2013 = col_double(),
+                 PUMA = col_double(),
+                 STRATA = col_double(),
+                 GQ = col_double(),
+                 FARM = col_double(),
+                 OWNCOST = col_double(),
+                 RENTGRS = col_double(),
+                 HHINCOME = col_double(),
+                 LINGISOL = col_double(),
+                 BEDROOMS = col_double(),
+                 CINETHH = col_double(),
+                 CILAPTOP = col_double(),
+                 CISMRTPHN = col_double(),
+                 CITABLET = col_double(),
+                 CIHAND = col_double(),
+                 CIOTHCOMP = col_double(),
+                 PERNUM = col_double(),
+                 PERWT = col_double(),
+                 SEX = col_double(),
+                 AGE = col_double(),
+                 RACE = col_double(),
+                 RACED = col_double(),
+                 HISPAN = col_double(),
+                 HISPAND = col_double(),
+                 CITIZEN = col_double(),
+                 HCOVANY = col_double(),
+                 EDUC = col_double(),
+                 EDUCD = col_double(),
+                 EMPSTAT = col_double(),
+                 EMPSTATD = col_double(),
+                 INCINVST = col_double(),
+                 INCRETIR = col_double(),
+                 POVERTY = col_double(),
+                 DIFFMOB = col_double(),
+                 DIFFCARE = col_double()
+               ))
+
+# recode internet, computer, smartphone, and tablet to be binary
+df <- df %>%
+  mutate(
+    int_acc = case_when(
+      CINETHH == 0 ~ NA_real_,
+      CINETHH == 1 ~ 1,
+      CINETHH == 2 ~ 1,
+      CINETHH == 3 ~ 0
+    ),
+    computer = case_when(
+      CILAPTOP == 0 ~ NA_real_,
+      CILAPTOP == 1 ~ 1,
+      CILAPTOP == 2 ~ 0
+    ),
+    smartphone = case_when(
+      CISMRTPHN == 0 ~ NA_real_,
+      CISMRTPHN == 1 ~ 1,
+      CISMRTPHN == 2 ~ 0
+    ),
+    tablet = case_when(
+      CITABLET == 0 ~ NA_real_,
+      CITABLET == 1 ~ 1,
+      CITABLET == 2 ~ 0
+    ),
+    comp_or_tab = case_when(
+      computer == 1 | tablet == 1 ~ 1,
+      computer == 0 & tablet == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    comp_and_int = case_when(
+      computer == 1 & int_acc == 1 ~ 1,
+      computer == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_and_int = case_when(
+      smartphone == 1 & int_acc == 1 ~ 1,
+      smartphone == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_or_int = case_when(
+      smartphone == 1 | int_acc == 1 ~ 1,
+      smartphone == 0 & int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+# These questions are usually only NA for group quarters
+# All the NA rows are the same for all categories in the Louisville sample
+df_na <- df %>%
+  filter(!is.na(int_acc) & !is.na(computer))
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+
+int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
+comp_tbl <- svyby(~computer, ~YEAR, design = svy_df, svymean)
+comp_int_tbl <- svyby(~comp_and_int, ~YEAR, design = svy_df, svymean)
+smart_int_tbl <- svyby(~smart_or_int, ~YEAR, design = svy_df, svymean)
+smart_and_int_tbl <- svyby(~smart_and_int, ~YEAR, design = svy_df, svymean)
+
+
+#smart phone and tablet data starts in 2016
+df_na_16 <- df %>%
+  filter(!is.na(smartphone) & !is.na(tablet))
+
+svy_df_smart <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na_16)
+
+smart_tbl <- svyby(~smartphone, ~YEAR, design = svy_df_smart, svymean)
+tab_tbl <- svyby(~tablet, ~YEAR, design = svy_df, svymean)
+comp_tab_tbl <- svyby(~comp_or_tab, ~YEAR, design = svy_df, svymean)
+
+# Other characteristics to cross with internet access --------------------------------
+
+df <- df %>%
+  mutate(poverty = if_else(POVERTY < 100 & POVERTY != 000, 1, 0),
+         under65 = if_else(AGE < 65, 1, 0))
+
+df_na <- df %>%
+  filter(!is.na(int_acc) & !is.na(computer))
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+
+int_pov_tbl <- svyby(~int_acc, ~YEAR+poverty, design = svy_df, svymean)
+int_age_tbl <-svyby(~int_acc, ~YEAR+under65, design = svy_df, svymean)
+int_race_tbl <- svyby(~int_acc, ~YEAR+RACE, design = svy_df, svymean)
+
+int_pov_tbl <- int_pov_tbl %>%
+  mutate(Poverty = if_else(poverty == 0, "Above Poverty Line", "Below Poverty Line"),
+         int = int_acc * 100,
+         se100 = se * 100)
+
+plt_by <- function(df, group_var, title_text = "Internet Access at Home") {
+  group_var <- enquo(group_var)
+
+  plt <- ggplot(data = df, aes(x = YEAR, y = int, group = !!group_var, colour = !!group_var)) +
+    geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
+    geom_point() +
+    geom_line() +
+    theme_bw() +
+    labs(title = title_text, x = "Year", y = "Percent") +
+    theme(legend.position = "bottom")
+
+  plt
+}
+
+plt_pov <- plt_by(int_pov_tbl, Poverty)
+
+int_race_tbl <- int_race_tbl %>%
+  filter(RACE < 3) %>% #Louisville's racial groups other than White and Black have small populations leading to low sample sizes
+  mutate(Race = if_else(RACE == 1, "White", "Black"),
+         int = int_acc * 100,
+         se100 = se * 100)
+
+plt_race <- plt_by(int_race_tbl, Race, title_text = "Internet Access")
+
+int_age_tbl <- int_age_tbl %>%
+  mutate(Age = if_else(under65 == 1, "Under 65", "Over 65"),
+         int = int_acc * 100,
+         se100 = se * 100)
+
+plt_age <- plt_by(int_age_tbl, Age, title_text = "Internet Access")
+
+int_tbl <- int_tbl %>%
+  mutate(int = int_acc * 100,
+         se100 = se * 100)
+
+plt_int <- ggplot(int_tbl, aes(x = YEAR, y = int)) +
+  geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
+  geom_line() +
+  geom_point() +
+  theme_bw() +
+  labs(title = "Household Internet Access", x = "Year", y = "Percent") +
+  theme(legend.position = "bottom")
+```
+
+# History
+
+Louisville has increased its internet access over time, including a large jump in 2016. (We do not currently have an explanation for this jump, so if you know of something that happened in that time period let us know). In the past few years access has leveled off at just above 90 percent of the population
+
+```{r}
+plt_int
+```
+
+# Poverty
+
+There is an access gap between poor and nonpoor individuals in having internet access at home, although this gap has shrunk a little as overall access has increased. 
+
+
+```{r}
+plt_pov
+```
+
+
+# Race
+
+We also see a gap between Black and White households although this has closed dramatically since 2014. 
+
+```{r}
+plt_race
+```
+
+# Age
+
+Finally, we see an age related gap, as individuals over the age of 65 are much less likely to be in a household with internet access. 
+
+```{r}
+plt_age
+```
+
+# Devices
+
+- 80% of Louisville households have a computer in thier household, unlike internet access this is down a little bit from 2013 (82%).
+- 69% have a tablet in their household.
+- 85% have either a computer or a tablet.
+- 89% of households have a smartphone.
+- 94% have either a smartphone or internet access at home.
+
+# JCPS additional capacity
+
+As schools transitioned to being online, JCPS distibuted:
+
+- 20,833 Chromebooks
+- 517 Hotspots
+
+This is not a large enough distribution to change our standing relative to peer cities, but it does increase internet access among JCPS students. 
+
+```{r, eval = FALSE}
+# png("rankings_graph.png", 1500, 1200, res = 200)
+# plt1
+# dev.off
+# 
+# png("int_access_graph.png", 1600, 1200, res = 200)
+# plt_int
+# dev.off
+# 
+# png("int_poverty.png", 1600, 1200, res = 200)
+# plt_pov
+# dev.off
+# 
+# png("int_race.png", 1600, 1200, res = 200)
+# plt_race
+# dev.off
+# 
+# png("int_age.png", 1600, 1200, res = 200)
+# plt_age
+# dev.off
+```
+
+For more local data and analysis please visit the [Greater Louisville Project](https://greaterlouisvilleproject.org/)

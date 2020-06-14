@@ -148,6 +148,14 @@ library(ggthemes)
 
 int_2018 <- int_tbl %>%
   filter(YEAR == 2018) %>%
-  mutate(current = 1)
+  mutate(current = 1,
+         int_acc = int_acc * 100)
+  
 
-plt1 <- ranking(int_2018, int_acc)
+plt1 <- ranking(int_2018, int_acc,
+                plot_title = "Internet Access in 2018",
+                font_family = "Verdana", text_size = 8, axis_size = 24)
+
+png("test_graph.png", 3000, 2400, res = 200)
+plt1
+dev.off()
