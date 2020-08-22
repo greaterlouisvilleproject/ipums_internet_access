@@ -51,6 +51,65 @@ df <- read_csv("~/Documents/pers/mpitools/mpi_13_18_raw.csv",
                )
 )
 
+# recode internet, computer, smartphone, and tablet to be binary
+df <- df %>%
+  mutate(
+    int_acc = case_when(
+      CINETHH == 0 ~ NA_real_,
+      CINETHH == 1 ~ 1,
+      CINETHH == 2 ~ 1,
+      CINETHH == 3 ~ 0
+    ),
+    computer = case_when(
+      CILAPTOP == 0 ~ NA_real_,
+      CILAPTOP == 1 ~ 1,
+      CILAPTOP == 2 ~ 0
+    ),
+    smartphone = case_when(
+      CISMRTPHN == 0 ~ NA_real_,
+      CISMRTPHN == 1 ~ 1,
+      CISMRTPHN == 2 ~ 0
+    ),
+    tablet = case_when(
+      CITABLET == 0 ~ NA_real_,
+      CITABLET == 1 ~ 1,
+      CITABLET == 2 ~ 0
+    ),
+    comp_or_tab = case_when(
+      computer == 1 | tablet == 1 ~ 1,
+      computer == 0 & tablet == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    comp_and_int = case_when(
+      computer == 1 & int_acc == 1 ~ 1,
+      computer == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_and_int = case_when(
+      smartphone == 1 & int_acc == 1 ~ 1,
+      smartphone == 0 | int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    ),
+    smart_or_int = case_when(
+      smartphone == 1 | int_acc == 1 ~ 1,
+      smartphone == 0 & int_acc == 0 ~ 0,
+      TRUE ~ NA_real_
+    )
+  )
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df)
+
+svy_df18 <- subset(svy_df, YEAR == 2018)
+
+
+
+
+# These questions are usually only NA for group quarters
+# All the NA rows are the same for all categories in the Louisville sample
+df_na <- df %>%
+  filter(!is.na(int_acc) & !is.na(computer))
+
+
 df_city <- df %>%
   filter(MET2013 %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
                         28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820, 27260, 
