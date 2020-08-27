@@ -18,71 +18,49 @@ output:
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 ```
 
-# Overall
-
-This report uses census Microdata from IPUMS to look at internet access in the Louisville MSA. Data is available from 2013 to 2018. Louisville ranks towards the bottom of our peer cities in percent of people with home internet access, although the differences among the cities are relatively small (The top city, Grand Rapids, is only 4 percentage points ahead of Louisville).
-
-```{r}
-# Libraries
+```{r, eval = FALSE}
+#Filtering to just GLP peer MSAs
 library(tidyverse)
-library(survey)
-library(glptools)
-library(classInt)
-library(ggthemes)
 
-# Read in data from IPUMS
-df <- read_csv("~/Documents/pers/mpitools/mpi_13_18_raw.csv",
-               col_types = cols(
-                 YEAR = col_double(),
-                 SAMPLE = col_double(),
-                 SERIAL = col_double(),
-                 CBSERIAL = col_double(),
-                 HHWT = col_double(),
-                 CLUSTER = col_double(),
-                 STATEFIP = col_double(),
-                 METRO = col_double(),
-                 MET2013 = col_double(),
-                 PUMA = col_double(),
-                 STRATA = col_double(),
-                 GQ = col_double(),
-                 FARM = col_double(),
-                 OWNCOST = col_double(),
-                 RENTGRS = col_double(),
-                 HHINCOME = col_double(),
-                 LINGISOL = col_double(),
-                 BEDROOMS = col_double(),
-                 CINETHH = col_double(),
-                 CILAPTOP = col_double(),
-                 CISMRTPHN = col_double(),
-                 CITABLET = col_double(),
-                 CIHAND = col_double(),
-                 CIOTHCOMP = col_double(),
-                 PERNUM = col_double(),
-                 PERWT = col_double(),
-                 SEX = col_double(),
-                 AGE = col_double(),
-                 RACE = col_double(),
-                 RACED = col_double(),
-                 HISPAN = col_double(),
-                 HISPAND = col_double(),
-                 CITIZEN = col_double(),
-                 HCOVANY = col_double(),
-                 EDUC = col_double(),
-                 EDUCD = col_double(),
-                 EMPSTAT = col_double(),
-                 EMPSTATD = col_double(),
-                 INCINVST = col_double(),
-                 INCRETIR = col_double(),
-                 POVERTY = col_double(),
-                 DIFFMOB = col_double(),
-                 DIFFCARE = col_double()
-               )
+df <- read_csv(
+  "glp_int.csv",
+  col_types = cols(
+    YEAR = col_double(),
+    SAMPLE = col_double(),
+    SERIAL = col_double(),
+    CBSERIAL = col_double(),
+    HHWT = col_double(),
+    CLUSTER = col_double(),
+    STATEFIP = col_double(),
+    METRO = col_double(),
+    MET2013 = col_double(),
+    PUMA = col_double(),
+    STRATA = col_double(),
+    GQ = col_double(),
+    CINETHH = col_double(),
+    CILAPTOP = col_double(),
+    CISMRTPHN = col_double(),
+    CITABLET = col_double(),
+    CIHISPEED = col_double(),
+    CIDIAL = col_double(),
+    PERNUM = col_double(),
+    PERWT = col_double(),
+    SEX = col_double(),
+    AGE = col_double(),
+    RACE = col_double(),
+    RACED = col_double(),
+    HISPAN = col_double(),
+    HISPAND = col_double(),
+    EDUC = col_double(),
+    EDUCD = col_double(),
+    POVERTY = col_double(),
+    city = col_character()
+  )
 )
 
 df_city <- df %>%
   filter(MET2013 %in% c(24340, 41180, 36420, 46140, 24860, 28940, 13820, 31140, 26900, 
-                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820, 27260, 
-                        39580, 19380, 40060)) %>%
+                        28140, 36540, 24660, 16740, 18140, 17140, 34980, 32820)) %>%
   mutate(city = case_when(
     MET2013 == 24340 ~ "Grand Rapids",
     MET2013 == 41180 ~ "St. Louis",
@@ -101,68 +79,123 @@ df_city <- df %>%
     MET2013 == 17140 ~ "Cincinnati",
     MET2013 == 34980 ~ "Nashville",
     MET2013 == 32820 ~ "Memphis",
-    MET2013 == 27260 ~ "Jacksonville",
-    MET2013 == 39580 ~ "Raleign",
-    MET2013 == 19380 ~ "Dayton",
-    MET2013 == 40060 ~ "Richmond",
     TRUE ~ NA_character_
   )) %>%
-  filter(!(city %in% c("Jacksonville", "Raleigh", "Dayton", "Richmond"))) # cities from old peer list
+  write_csv("glp_int_MSAs.csv")
+```
 
-  df <- df_city %>%
-    mutate(
+
+# Overall
+
+This report uses census Microdata from IPUMS to look at internet access in the Louisville MSA. Data is available from 2013 to 2018. About 1 in 10 households in Louisville have no internet access, and 3 in 10 do not have the high speed access necessary for working and learning at home. Access to high speed internet access has not improved in the past 6 years. Households also lack access to devices, with 15% of houses not having a computer or a tablet. Houses that do have computers or tablets are also unlikely to have enough devices for multiple people working from home (unfortunately the Census data only asks about having 1 or more device). 
+
+```{r}
+# Libraries
+library(tidyverse)
+library(survey)
+library(glptools)
+library(classInt)
+library(ggthemes)
+library(ggplot2)
+library(rgdal)
+library(sf)
+
+df <- read_csv(
+  "glp_int_MSAs.csv",
+  col_types = cols(
+    YEAR = col_double(),
+    SAMPLE = col_double(),
+    SERIAL = col_double(),
+    CBSERIAL = col_double(),
+    HHWT = col_double(),
+    CLUSTER = col_double(),
+    STATEFIP = col_double(),
+    METRO = col_double(),
+    MET2013 = col_double(),
+    PUMA = col_double(),
+    STRATA = col_double(),
+    GQ = col_double(),
+    CINETHH = col_double(),
+    CILAPTOP = col_double(),
+    CISMRTPHN = col_double(),
+    CITABLET = col_double(),
+    CIHISPEED = col_double(),
+    CIDIAL = col_double(),
+    PERNUM = col_double(),
+    PERWT = col_double(),
+    SEX = col_double(),
+    AGE = col_double(),
+    RACE = col_double(),
+    RACED = col_double(),
+    HISPAN = col_double(),
+    HISPAND = col_double(),
+    EDUC = col_double(),
+    EDUCD = col_double(),
+    POVERTY = col_double(),
+    city = col_character()
+  )
+)
+
+df <- df %>%
+  mutate(
     int_acc = case_when(
       CINETHH == 0 ~ NA_real_,
       CINETHH == 1 ~ 1,
       CINETHH == 2 ~ 1,
-      CINETHH == 3 ~ 0
+      CINETHH == 3 ~ 0),
+    hspd_int = case_when(
+      CINETHH == 0 ~ NA_real_,
+      CINETHH == 3 & CIHISPEED == 0 ~ 0, #seems like it's marked NA if the household doesn't have internet access. We want it to be no High Speed access
+      CIHISPEED > 9 & CIHISPEED < 20 ~ 1,
+      CIHISPEED == 20 ~ 0
     ),
     computer = case_when(
       CILAPTOP == 0 ~ NA_real_,
       CILAPTOP == 1 ~ 1,
       CILAPTOP == 2 ~ 0
     ),
-    smartphone = case_when(
-      CISMRTPHN == 0 ~ NA_real_,
-      CISMRTPHN == 1 ~ 1,
-      CISMRTPHN == 2 ~ 0
-    ),
     tablet = case_when(
       CITABLET == 0 ~ NA_real_,
       CITABLET == 1 ~ 1,
       CITABLET == 2 ~ 0
     ),
-    comp_or_tab = case_when(
+    comp_tab = case_when(
       computer == 1 | tablet == 1 ~ 1,
       computer == 0 & tablet == 0 ~ 0,
       TRUE ~ NA_real_
     ),
-    comp_and_int = case_when(
-      computer == 1 & int_acc == 1 ~ 1,
-      computer == 0 | int_acc == 0 ~ 0,
-      TRUE ~ NA_real_
-    ),
-    smart_and_int = case_when(
-      smartphone == 1 & int_acc == 1 ~ 1,
-      smartphone == 0 | int_acc == 0 ~ 0,
-      TRUE ~ NA_real_
-    ),
-    smart_or_int = case_when(
-      smartphone == 1 | int_acc == 1 ~ 1,
-      smartphone == 0 & int_acc == 0 ~ 0,
+    hspd_dev = case_when(
+      comp_tab == 1 & hspd_int == 1 ~ 1,
+      comp_tab == 0 | hspd_int == 0 ~ 0,
       TRUE ~ NA_real_
     )
   )
 
+
 # These questions are usually only NA for group quarters
 # All the NA rows are the same for all categories in the Louisville sample
 df_na <- df %>%
-  filter(!is.na(int_acc) & !is.na(computer))
+  filter(!is.na(int_acc))
 
 svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
 
 int_tbl <- svyby(~int_acc, ~YEAR+city, design = svy_df, svymean)
-comp_tbl <- svyby(~computer, ~YEAR+city, design = svy_df, svymean)
+
+#Even accounting for not asking people without internet if they had hi speed internet 
+df_na <- df %>%
+  filter(!is.na(hspd_int))
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+
+hspd_tbl <- svyby(~hspd_int, ~YEAR+city, design = svy_df, svymean)
+
+df_na <- df %>%
+  filter(!is.na(comp_tab) & !is.na(hspd_dev))
+
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+
+hspd_dev_tbl <- svyby(~hspd_dev, ~YEAR+city, design = svy_df, svymean)
+comp_tab_tbl <- svyby(~comp_tab, ~YEAR+city, design = svy_df, svymean)
 
 ranking <- function(df, var, plot_title = "",
                     year = NULL, sex = "total", race = "total", peers = "Current",
@@ -286,7 +319,7 @@ ranking <- function(df, var, plot_title = "",
   title_scale <- min(1, 48 / nchar(plot_title))
   
   p <- p + theme(text = element_text(family = font_family),
-                 plot.title = element_text(size = 24 * title_scale, hjust = 0.5, margin = margin(b = 20, unit = "pt")),
+                 plot.title = element_text(size = 22 * title_scale, hjust = 0.5, margin = margin(b = 20, unit = "pt")),
                  axis.text.y = element_text(hjust = 0,
                                             size = axis_size, color = rev(df$textcolor)),
                  axis.title.x = element_text(size = axis_size),
@@ -295,7 +328,7 @@ ranking <- function(df, var, plot_title = "",
                  plot.caption = element_text(size = 36, lineheight = 0.5))
   
   if(subtitle_text != ""){
-    p <- p + theme(plot.subtitle = element_text(hjust = 0.5, size = 48)) +
+    p <- p + theme(plot.subtitle = element_text(hjust = 0.5, size = 16)) +
       labs(subtitle = subtitle_text)
   }
   
@@ -320,155 +353,117 @@ int_2018 <- int_tbl %>%
   filter(YEAR == 2018) %>%
   mutate(current = 1,
          int_acc = int_acc * 100)
+
+hspd_2018 <- hspd_tbl %>%
+  filter(YEAR == 2018) %>%
+  mutate(current = 1,
+         hspd_int = hspd_int * 100)
+
+comp_tab_2018 <- comp_tab_tbl %>%
+  filter(YEAR == 2018) %>%
+  mutate(current = 1,
+         comp_tab = comp_tab * 100)
+
+hspd_dev_2018 <- hspd_dev_tbl %>%
+  filter(YEAR == 2018) %>%
+  mutate(current = 1,
+         hspd_dev = hspd_dev * 100)
   
 
 plt1 <- ranking(int_2018, int_acc,
-                plot_title = "Internet Access in 2018",
+                plot_title = "Internet Access",
+                subtitle_text = "2018",
+                font_family = "Verdana", text_size = 3, axis_size = 12) 
+
+plt2 <- ranking(hspd_2018, hspd_int,
+                plot_title = "High Speed Internet Access",
+                subtitle_text = "2018",
+                font_family = "Verdana", text_size = 3, axis_size = 12)
+
+plt3 <- ranking(comp_tab_2018, comp_tab,
+                plot_title = "Computer or Tablet in Household",
+                subtitle_text = "2018",
+                font_family = "Verdana", text_size = 3, axis_size = 12)
+
+plt4 <- ranking(hspd_dev_2018, hspd_dev,
+                plot_title = "High Speed Internet and Device",
+                subtitle_text = "2018",
                 font_family = "Verdana", text_size = 3, axis_size = 12)
 
 plt1
 ```
 
+While 91% of houses have some form of internet access, only 73% have high speed internet access. While internet access over a smartphone or other non high speed source can be useful for staying connected in evenings, in the COVID era of working and learning from home high speed internet is a necessary utility that over a quarter of our households do not have. 
 
 ```{r}
-df <- read_csv("louisville_mpi.csv",
-               col_types = cols(
-                 YEAR = col_double(),
-                 SAMPLE = col_double(),
-                 SERIAL = col_double(),
-                 CBSERIAL = col_double(),
-                 HHWT = col_double(),
-                 CLUSTER = col_double(),
-                 STATEFIP = col_double(),
-                 METRO = col_double(),
-                 MET2013 = col_double(),
-                 PUMA = col_double(),
-                 STRATA = col_double(),
-                 GQ = col_double(),
-                 FARM = col_double(),
-                 OWNCOST = col_double(),
-                 RENTGRS = col_double(),
-                 HHINCOME = col_double(),
-                 LINGISOL = col_double(),
-                 BEDROOMS = col_double(),
-                 CINETHH = col_double(),
-                 CILAPTOP = col_double(),
-                 CISMRTPHN = col_double(),
-                 CITABLET = col_double(),
-                 CIHAND = col_double(),
-                 CIOTHCOMP = col_double(),
-                 PERNUM = col_double(),
-                 PERWT = col_double(),
-                 SEX = col_double(),
-                 AGE = col_double(),
-                 RACE = col_double(),
-                 RACED = col_double(),
-                 HISPAN = col_double(),
-                 HISPAND = col_double(),
-                 CITIZEN = col_double(),
-                 HCOVANY = col_double(),
-                 EDUC = col_double(),
-                 EDUCD = col_double(),
-                 EMPSTAT = col_double(),
-                 EMPSTATD = col_double(),
-                 INCINVST = col_double(),
-                 INCRETIR = col_double(),
-                 POVERTY = col_double(),
-                 DIFFMOB = col_double(),
-                 DIFFCARE = col_double()
-               ))
+plt2
+```
 
-# recode internet, computer, smartphone, and tablet to be binary
-df <- df %>%
-  mutate(
-    int_acc = case_when(
-      CINETHH == 0 ~ NA_real_,
-      CINETHH == 1 ~ 1,
-      CINETHH == 2 ~ 1,
-      CINETHH == 3 ~ 0
-    ),
-    computer = case_when(
-      CILAPTOP == 0 ~ NA_real_,
-      CILAPTOP == 1 ~ 1,
-      CILAPTOP == 2 ~ 0
-    ),
-    smartphone = case_when(
-      CISMRTPHN == 0 ~ NA_real_,
-      CISMRTPHN == 1 ~ 1,
-      CISMRTPHN == 2 ~ 0
-    ),
-    tablet = case_when(
-      CITABLET == 0 ~ NA_real_,
-      CITABLET == 1 ~ 1,
-      CITABLET == 2 ~ 0
-    ),
-    comp_or_tab = case_when(
-      computer == 1 | tablet == 1 ~ 1,
-      computer == 0 & tablet == 0 ~ 0,
-      TRUE ~ NA_real_
-    ),
-    comp_and_int = case_when(
-      computer == 1 & int_acc == 1 ~ 1,
-      computer == 0 | int_acc == 0 ~ 0,
-      TRUE ~ NA_real_
-    ),
-    smart_and_int = case_when(
-      smartphone == 1 & int_acc == 1 ~ 1,
-      smartphone == 0 | int_acc == 0 ~ 0,
-      TRUE ~ NA_real_
-    ),
-    smart_or_int = case_when(
-      smartphone == 1 | int_acc == 1 ~ 1,
-      smartphone == 0 & int_acc == 0 ~ 0,
-      TRUE ~ NA_real_
-    )
-  )
+A full 15% of our households do not have either a computer or tablet at home, and this understates the extent of the internet device shortage, as a single device is insufficient for a household with multiple people working and learning. 
 
-# These questions are usually only NA for group quarters
-# All the NA rows are the same for all categories in the Louisville sample
-df_na <- df %>%
-  filter(!is.na(int_acc) & !is.na(computer))
+```{r}
+plt3
+```
 
-svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
+Finally, we can also look at the overlap of having both high speed internet and a device to work on. At 71% this is fairly similar to the numbers with high speed internet, suggesting that most people with high speed internet do have at least one device capable of accessing it. 
 
-int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
-comp_tbl <- svyby(~computer, ~YEAR, design = svy_df, svymean)
-comp_int_tbl <- svyby(~comp_and_int, ~YEAR, design = svy_df, svymean)
-smart_int_tbl <- svyby(~smart_or_int, ~YEAR, design = svy_df, svymean)
-smart_and_int_tbl <- svyby(~smart_and_int, ~YEAR, design = svy_df, svymean)
+```{r}
+plt4
+```
+
+# The Digital Divide in Jefferson County 
+
+We can also take a deeper look into internet access within Louisville. We'll focus on high speed internet. While devices are also important, the data doesn't let us know how many devices are in each household, so it's guidance on the magnitude of the device shortage is quite limited. 
+
+## Internet Speed
+
+Although overall internet access has increased a little since 2013, high speed internet access remains flat or possibly slightly below 2013 levels. 
+In 2016, the Census Bureau began asking about smart phones for the first time. Although the internet access question was not changed, the addition of the question about smartphones may still explain the jump in consumers reporting that they had internet acess at home. There is no similar uptick in high speed access.  
 
 
-#smart phone and tablet data starts in 2016
-df_na_16 <- df %>%
-  filter(!is.na(smartphone) & !is.na(tablet))
+```{r jeff co}
+# Cut the data down to just Jefferson County
+# df_msa <- df %>%
+#   filter(MET2013 == 31140)
+#   
+# df_jeff <- df_msa %>%
+#   filter(PUMA %in% c("1701", "1702", "1703", "1704", "1705", "1706")) %>%
+#   write_csv("jeff_co_int.csv")
 
-svy_df_smart <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na_16)
 
-smart_tbl <- svyby(~smartphone, ~YEAR, design = svy_df_smart, svymean)
-tab_tbl <- svyby(~tablet, ~YEAR, design = svy_df, svymean)
-comp_tab_tbl <- svyby(~comp_or_tab, ~YEAR, design = svy_df, svymean)
+df <- read_csv("jeff_co_int.csv")
 
-# Other characteristics to cross with internet access --------------------------------
+
+# See if there's data on high speed internet access at the tract level 
 
 df <- df %>%
   mutate(poverty = if_else(POVERTY < 100 & POVERTY != 000, 1, 0),
          under65 = if_else(AGE < 65, 1, 0))
 
 df_na <- df %>%
-  filter(!is.na(int_acc) & !is.na(computer))
+  filter(!is.na(hspd_int))
 
 svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
 
-int_pov_tbl <- svyby(~int_acc, ~YEAR+poverty, design = svy_df, svymean)
-int_age_tbl <-svyby(~int_acc, ~YEAR+under65, design = svy_df, svymean)
-int_race_tbl <- svyby(~int_acc, ~YEAR+RACE, design = svy_df, svymean)
+hint_tbl <- svyby(~hspd_int, ~YEAR, design = svy_df, svymean)
+int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
+int_pov_tbl <- svyby(~hspd_int, ~YEAR+poverty, design = svy_df, svymean)
+int_age_tbl <-svyby(~hspd_int, ~YEAR+under65, design = svy_df, svymean)
+int_race_tbl <- svyby(~hspd_int, ~YEAR+RACE, design = svy_df, svymean)
 
-int_pov_tbl <- int_pov_tbl %>%
-  mutate(Poverty = if_else(poverty == 0, "Above Poverty Line", "Below Poverty Line"),
-         int = int_acc * 100,
-         se100 = se * 100)
 
-plt_by <- function(df, group_var, title_text = "Internet Access at Home") {
+hint_tbl <- hint_tbl %>%
+  mutate(int = hspd_int * 100,
+         se100 = se * 100,
+         `High Speed` = "High Speed")
+
+int_tbl <- int_tbl %>%
+  mutate(int = int_acc * 100,
+         se100 = se * 100,
+         `High Speed` = "All Internet") %>%
+  bind_rows(hint_tbl)
+
+plt_by <- function(df, group_var, title_text = "Internet Access") {
   group_var <- enquo(group_var)
 
   plt <- ggplot(data = df, aes(x = YEAR, y = int, group = !!group_var, colour = !!group_var)) +
@@ -482,87 +477,132 @@ plt_by <- function(df, group_var, title_text = "Internet Access at Home") {
   plt
 }
 
+plt_int <- plt_by(int_tbl, `High Speed`)
+
+plt_int
+
+
+# plt_int <- ggplot(int_tbl, aes(x = YEAR, y = int)) +
+#   geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
+#   geom_line() +
+#   geom_point() +
+#   theme_bw() +
+#   labs(title = "Household Internet Access", x = "Year", y = "Percent") +
+#   theme(legend.position = "bottom")
+# 
+# plt_int
+```
+
+## Poverty
+
+HIgh speed internet access for households in poverty has been _decreasing_ since 2013. 
+
+```{r poverty}
+int_pov_tbl <- int_pov_tbl %>%
+  mutate(Poverty = if_else(poverty == 0, "Above Poverty Line", "Below Poverty Line"),
+         int = hspd_int * 100,
+         se100 = se * 100)
+
 plt_pov <- plt_by(int_pov_tbl, Poverty)
 
-int_race_tbl <- int_race_tbl %>%
-  filter(RACE < 3) %>% #Louisville's racial groups other than White and Black have small populations leading to low sample sizes
-  mutate(Race = if_else(RACE == 1, "White", "Black"),
-         int = int_acc * 100,
-         se100 = se * 100)
-
-plt_race <- plt_by(int_race_tbl, Race, title_text = "Internet Access")
-
-int_age_tbl <- int_age_tbl %>%
-  mutate(Age = if_else(under65 == 1, "Under 65", "Over 65"),
-         int = int_acc * 100,
-         se100 = se * 100)
-
-plt_age <- plt_by(int_age_tbl, Age, title_text = "Internet Access")
-
-int_tbl <- int_tbl %>%
-  mutate(int = int_acc * 100,
-         se100 = se * 100)
-
-plt_int <- ggplot(int_tbl, aes(x = YEAR, y = int)) +
-  geom_errorbar(aes(ymin = int - (1.96 * se100), ymax = int + 1.96 * se100), width = .1) +
-  geom_line() +
-  geom_point() +
-  theme_bw() +
-  labs(title = "Household Internet Access", x = "Year", y = "Percent") +
-  theme(legend.position = "bottom")
-```
-
-# History
-
-Louisville has increased its internet access over time, including a large jump in 2016. (We do not currently have an explanation for this jump, so if you know of something that happened in that time period let us know). In the past few years access has leveled off at just above 90 percent of the population
-
-```{r}
-plt_int
-```
-
-# Poverty
-
-There is an access gap between poor and nonpoor individuals in having internet access at home, although this gap has shrunk a little as overall access has increased. 
-
-
-```{r}
 plt_pov
 ```
 
+## Race
 
-# Race
+High speed internet access has either remained steady or slightly declined for Black households in Louisville. 
 
-We also see a gap between Black and White households although this has closed dramatically since 2014. 
+```{r race}
+int_race_tbl <- int_race_tbl %>%
+  filter(RACE < 3) %>% #Louisville's racial groups other than White and Black have small populations leading to low sample sizes
+  mutate(Race = if_else(RACE == 1, "White", "Black"),
+         int = hspd_int * 100,
+         se100 = se * 100)
 
-```{r}
+plt_race <- plt_by(int_race_tbl, Race, title_text = "High Speed Internet Access")
+
 plt_race
 ```
 
-# Age
+## Age
 
-Finally, we see an age related gap, as individuals over the age of 65 are much less likely to be in a household with internet access. 
+Households with adults age 65 and older is one of the only household groupings where high speed internet access has actually increased over time
 
 ```{r}
+int_age_tbl <- int_age_tbl %>%
+  mutate(int = hspd_int * 100,
+         se100 = se * 100,
+         Age = if_else(under65 == 1, "Under 65", "65 and Older"))
+
+plt_age <- plt_by(int_age_tbl, Age, title_text = "High Speed Internet Access")
+
 plt_age
 ```
 
-# Devices
+# School Age Children
 
-- 80% of Louisville households have a computer in thier household, unlike internet access this is down a little bit from 2013 (82%).
-- 69% have a tablet in their household.
-- 85% have either a computer or a tablet.
-- 89% of households have a smartphone.
-- 94% have either a smartphone or internet access at home.
+In this section we limit the scope of our analysis to look at children ages 5-18. Nontraditional instruction (NTI) functions much better with access to high speed internet. About 25,600 school age children in Jefferson County do not have access to high speed internet. The map below is broken into 6 areas based on public use microdata geographies. Unfortunately, this is the lowest geographic level of detail we can get with Census microdata. 
 
-# JCPS additional capacity
+```{r, message = FALSE}
+##Section on Children
 
-As schools transitioned to being online, JCPS distibuted:
+#Recode values so that 1 indicates not having interent access
+#This makes it easier to get a raw count on number of kids without high speed access
+df_ch <- df_na %>%
+  filter(AGE > 4 & AGE < 19 & YEAR == 2018) %>%
+  mutate(hint = case_when(
+    hspd_int == 1 ~ 0,
+    hspd_int == 0 ~ 1,
+    TRUE ~ NA_real_
+  ))
 
-- 20,833 Chromebooks
-- 517 Hotspots
+svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_ch)
 
-This is not a large enough distribution to change our standing relative to peer cities, but it does increase internet access among JCPS students. 
+##Making a map
+int_tbl <- svyby(~hint, ~YEAR + PUMA, design = svy_df, svymean)
 
+int_tbl_count <- svyby(~hint, ~YEAR + PUMA, design = svy_df, svytotal)
+
+ky_shp <- readOGR("cb_2016_21_puma10_500k", layer = "cb_2016_21_puma10_500k", GDAL1_integer64_policy = TRUE, verbose = FALSE)
+ky_shp@data$PUMA <- as.numeric(as.character(ky_shp@data$PUMACE10))
+ky_sf <- st_as_sf(ky_shp)
+
+jeff_co_sf <- ky_sf %>% 
+  filter(ky_sf$PUMA %in% c("1701", "1702", "1703", "1704", "1705", "1706"))
+
+int_puma <- tibble(
+  PUMA = int_tbl$PUMA,
+  int_per = int_tbl$hint * 100,
+  int_num = formattable::comma(round(int_tbl_count$hint, -2), digits = 0),
+)
+
+jeff_co_sf <- full_join(jeff_co_sf, int_puma, by = "PUMA")
+
+ggplot(jeff_co_sf) + 
+  geom_sf(aes(fill=int_per)) +
+  geom_sf_label(aes(label = int_num, fontface = "bold")) +
+  scale_fill_gradient(low = "blue", high = "purple", name = "Percent") +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank()) +
+  labs(title = "Children ages 5-18 in households without High Speed Internet Access",
+       caption = "Map is shaded by percent of children without access in each Public Use Microdata Area and 
+       the number of children without acess is given by the label rounded to the nearest 100 \n
+       Greater Louisville Project Analysis of Census Microdata from IPUMs")
+```
+
+# Internet as a Public Utility
+
+The lack of high speed internet access in Louisville is part of a broader trend across the United States of continuing to treat home internet as something that is 'nice to have' instead of something that is necessary to fully take part in modern society. In general, the U.S. leaves broadband infrastructure to private companies who will not build out infrastructure to areas that aren't profitable. An exception to this trend in Chatanooga, TN, where [the electric utility is also an Internet Service Provider](https://tech.co/news/chattanooga-fastest-internet-usa-2018-08). The lack of internet acess in Louisville (and throughout the U.S) has [severe consequences](https://www.theatlantic.com/technology/archive/2020/08/virtual-learning-when-you-dont-have-internet/615322/) including exacerbating inequality (both racial and economic) and slower overall economic growth. 
+
+## Local Efforts
+
+- Jefferson County Public Schools have distributed hotspots and chromebooks to try to complete NTI. 
+- Kentucky is investing $8 million to [subsidize internet access for low-income students](https://wfpl.org/kentucky-to-invest-in-broadband-access-for-low-income-students/)
+ 
 ```{r, eval = FALSE}
 # png("rankings_graph.png", 1500, 1200, res = 200)
 # plt1
