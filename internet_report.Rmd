@@ -1,7 +1,7 @@
 ---
 title: "Internet Access in Louisville"
 author: "Nate Kratzer"
-date: '2020-06-03'
+date: '2020-09-09'
 output:
   html_document:
     includes:
@@ -389,11 +389,9 @@ plt4 <- ranking(hspd_dev_2018, hspd_dev,
                 plot_title = "High Speed Internet and Device",
                 subtitle_text = "2018",
                 font_family = "Verdana", text_size = 3, axis_size = 12)
-
-plt1
 ```
 
-While 91% of houses have some form of internet access, only 73% have high speed internet access. While internet access over a smartphone or other non high speed source can be useful for staying connected in evenings, in the COVID era of working and learning from home high speed internet is a necessary utility that over a quarter of our households do not have. 
+Our focus on internet access is a focus on high speed access. While internet access over a smartphone or other non high speed source can be useful for staying connected, in the COVID era of working and learning from home high speed internet is a necessary utility that over a quarter of our households do not have. While 91% of houses have some form of internet access, only 73% have high speed internet access. 
 
 ```{r}
 plt2
@@ -417,10 +415,8 @@ We can also take a deeper look into internet access within Louisville. We'll foc
 
 ## Internet Speed
 
-Although overall internet access has increased a little since 2013, high speed internet access remains flat or possibly slightly below 2013 levels. 
+While our focus is on high speed access, we do show the history of both all internet access and high speed access in the graph below. Although overall internet access has increased a little since 2013, high speed internet access remains flat or possibly slightly below 2013 levels. 
 In 2016, the Census Bureau began asking about smart phones for the first time. Although the internet access question was not changed, the addition of the question about smartphones may still explain the jump in consumers reporting that they had internet acess at home. There is no similar uptick in high speed access.  
-
-
 ```{r jeff co}
 # Cut the data down to just Jefferson County
 # df_msa <- df %>%
@@ -446,6 +442,7 @@ df_na <- df %>%
 svy_df <- svydesign(ids = ~ 1, weights = ~PERWT, data = df_na)
 
 hint_tbl <- svyby(~hspd_int, ~YEAR, design = svy_df, svymean)
+hint_tbl_count <- svyby(~hspd_int, ~YEAR, design = svy_df, svytotal)
 int_tbl <- svyby(~int_acc, ~YEAR, design = svy_df, svymean)
 int_pov_tbl <- svyby(~hspd_int, ~YEAR+poverty, design = svy_df, svymean)
 int_age_tbl <-svyby(~hspd_int, ~YEAR+under65, design = svy_df, svymean)
@@ -573,7 +570,7 @@ jeff_co_sf <- ky_sf %>%
 int_puma <- tibble(
   PUMA = int_tbl$PUMA,
   int_per = int_tbl$hint * 100,
-  int_num = formattable::comma(round(int_tbl_count$hint, -2), digits = 0),
+  int_num = formattable::comma(round(int_tbl_count$hint, -2), digits = 0)
 )
 
 jeff_co_sf <- full_join(jeff_co_sf, int_puma, by = "PUMA")
@@ -590,7 +587,7 @@ ggplot(jeff_co_sf) +
         panel.border = element_blank()) +
   labs(title = "Children ages 5-18 in households without High Speed Internet Access",
        caption = "Map is shaded by percent of children without access in each Public Use Microdata Area and 
-       the number of children without acess is given by the label rounded to the nearest 100 \n
+       the number of children without access is given by the label rounded to the nearest 100 \n
        Greater Louisville Project Analysis of Census Microdata from IPUMs")
 ```
 
